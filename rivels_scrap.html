@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Roblox Rivals True 3D Clone</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #050811;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #setup-screen, #game-over-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(6, 10, 20, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .menu-box {
+            background: #0b1424;
+            padding: 30px;
+            border-radius: 12px;
+            border: 3px solid #ff4757;
+            text-align: center;
+            width: 380px;
+            box-shadow: 0 0 25px rgba(255, 71, 87, 0.4);
+        }
+        h1 { color: #ff4757; margin-bottom: 20px; letter-spacing: 2px; font-size: 28px; }
+        h3 { margin-top: 15px; color: #ffa502; font-size: 15px; text-align: left; margin-left: 5px; }
+        select, button {
+            padding: 12px;
+            font-size: 15px;
+            margin: 5px 0;
+            background: #162436;
+            color: white;
+            border: 1px solid #341f97;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button { background: #ff4757; font-weight: bold; font-size: 18px; margin-top: 25px; border: none; }
+        button:hover { background: #ff6b81; }
+        
+        #hud {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            box-sizing: border-box;
+            padding: 20px;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 5;
+        }
+        .top-hud { display: flex; justify-content: space-between; align-items: flex-start; }
+        .score-board {
+            background: rgba(5, 10, 25, 0.9);
+            padding: 10px 40px;
+            border-radius: 8px;
+            border-bottom: 4px solid #ffd32a;
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffd32a;
+        }
+        .score-sub { font-size: 12px; color: #fff; margin-top: 2px; letter-spacing: 1px; }
+        
+        .status-panel {
+            background: rgba(5, 10, 25, 0.8);
+            padding: 12px 18px;
+            border-radius: 8px;
+            width: 220px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .hp-container {
+            width: 100%; height: 14px; background: #1a1a1a;
+            border-radius: 10px; overflow: hidden; margin-top: 6px; border: 1px solid #333;
+        }
+        .hp-bar { height: 100%; width: 100%; transition: width 0.1s ease-out; }
+        #p-hp-bar { background: #2ed573; box-shadow: 0 0 8px #2ed573; }
+        #e-hp-bar { background: #ff4757; box-shadow: 0 0 8px #ff4757; }
+        .ammo-text { font-size: 13px; color: #c8d6e5; margin-top: 6px; font-weight: bold; }
+
+        #hotbar {
+            align-self: center; display: flex; gap: 12px;
+            background: rgba(5, 10, 25, 0.9); padding: 10px; border-radius: 12px;
+            margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .slot {
+            width: 75px; height: 75px; background: #162436; border: 3px solid #57606f;
+            border-radius: 10px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; font-size: 12px;
+            font-weight: bold; position: relative;
+        }
+        .slot.active { border-color: #ff4757; background: #241570; box-shadow: 0 0 12px #ff4757; }
+        .slot-num { position: absolute; top: 3px; left: 6px; font-size: 11px; color: #a4b0be;}
+        
+        #reticle {
+            position: absolute; top: 50%; left: 50%; width: 16px; height: 16px;
+            transform: translate(-50%, -50%);
+        }
+        #reticle::before, #reticle::after { content: ''; position: absolute; background: #2ed573; }
+        #reticle::before { top: 7px; left: 0; width: 16px; height: 2px; }
+        #reticle::after { top: 0; left: 7px; width: 2px; height: 16px; }
+
+        canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        #controls-tip {
+            position: absolute; bottom: 15px; left: 15px; background: rgba(0,0,0,0.8);
+            padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #c8d6e5; z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls-tip">操作: WASDで移動（カメラ基準） | 矢印キーで視点変更（右で右を向く） | スペースでジャンプ | Eキーで攻撃</div>
+
+    <div id="setup-screen">
+        <div class="menu-box">
+            <h1>RIVALS TRUE 3D</h1>
+            <h3>難易度</h3>
+            <select id="difficulty-select">
+                <option value="easy">Easy (簡単)</option>
+                <option value="normal" selected>Normal (普通)</option>
+                <option value="hard">Hard (難しい)</option>
+            </select>
+            <h3>1: 遠距離武器</h3>
+            <select id="weapon-ranged">
+                <option value="shuriken">手裏剣 (2段大ジャンプ解放)</option>
+                <option value="ar">アサルトライフル (15連射)</option>
+                <option value="pistol">ハンドガン (12単発)</option>
+            </select>
+            <h3>2: 近接武器</h3>
+            <select id="weapon-melee">
+                <option value="knife">ナイフ (背後ワンパン)</option>
+                <option value="sword">大剣 (広範囲/30ダメ)</option>
+            </select>
+            <h3>3: UNIT</h3>
+            <select id="weapon-unit">
+                <option value="dynamite">ダイナマイト (近距離爆発)</option>
+                <option value="jumppad">ジャンプ台 (大ジャンプ床)</option>
+            </select>
+            <button onclick="initGame()">対戦開始</button>
+        </div>
+    </div>
+
+    <div id="game-over-screen" style="display: none;">
+        <div class="menu-box">
+            <h1 id="win-lose-text">VICTORY</h1>
+            <p id="final-score" style="font-size: 22px; color:#ffd32a; font-weight: bold;"></p>
+            <button onclick="location.reload()">もう一度戦う</button>
+        </div>
+    </div>
+
+    <div id="hud">
+        <div class="top-hud">
+            <div class="status-panel">
+                <div style="font-weight:bold; color:#1e90ff;">YOU (BLUE)</div>
+                <div class="hp-container"><div id="p-hp-bar" class="hp-bar"></div></div>
+                <div style="font-size:12px; margin-top:3px;">HP: <span id="p-hp-text">150</span>/150</div>
+                <div class="ammo-text">AMMO: <span id="p-ammo">-</span></div>
+            </div>
+            <div class="score-board">
+                <span id="score-p">0</span> : <span id="score-e">0</span>
+                <div class="score-sub">5 POINTS TO WIN</div>
+            </div>
+            <div class="status-panel" style="text-align: right;">
+                <div style="font-weight:bold; color:#ff4757;">ENEMY (RED)</div>
+                <div class="hp-container"><div id="e-hp-bar" class="hp-bar"></div></div>
+                <div style="font-size:12px; margin-top:3px;">HP: <span id="e-hp-text">150</span>/150</div>
+                <div class="ammo-text" id="e-weapon-text">-</div>
+            </div>
+        </div>
+        <div id="reticle"></div>
+        <div id="hotbar">
+            <div class="slot" id="slot-1"><span class="slot-num">1</span><span id="name-1">Ranged</span></div>
+            <div class="slot" id="slot-2"><span class="slot-num">2</span><span id="name-2">Melee</span></div>
+            <div class="slot" id="slot-3"><span class="slot-num">3</span><span id="name-3">Unit</span></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        let gameActive = false;
+        let score = { player: 0, enemy: 0 };
+        let difficulty = 'normal';
+
+        const WEAPONS = {
+            shuriken: { name: '手裏剣', type: 'ranged', dmg: 20, isGun: false },
+            ar: { name: 'アサルトライフル', type: 'ranged', dmg: 15, isGun: true, max: 30 },
+            pistol: { name: 'ハンドガン', type: 'ranged', dmg: 12, isGun: true, max: 30 },
+            knife: { name: 'ナイフ', type: 'melee', dmg: 10, speed: 12 },
+            sword: { name: '大剣', type: 'melee', dmg: 30, speed: 30 },
+            dynamite: { name: 'ダイナマイト', type: 'unit', dmg: 40 },
+            jumppad: { name: 'ジャンプ台', type: 'unit' }
+        };
+
+        let player = { x: -15, z: 0, y: 0, vy: 0, angle: 0, pitch: 0, hp: 150, maxHp: 150, slot: 1, cooldown: 0, jumps: 0, ammo: 30, totalAmmo: 200, radius: 1.0 };
+        let enemy = { x: 15, z: 0, y: 0, vy: 0, angle: Math.PI, hp: 150, maxHp: 150, slot: 1, cooldown: 0, ammo: 30, aiTimer: 0, targetX: 15, targetZ: 0, radius: 1.0, height: 2.2 };
+
+        let projectiles = [];
+        let jumpPads = [];
+        let obstacles = [];
+        const arenaSize = 25;
+
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            let k = e.key.toLowerCase();
+            keys[k] = true;
+            keys[e.key] = true;
+            if(!gameActive) return;
+
+            if(e.key === '1') { player.slot = 1; updateHUD(); }
+            if(e.key === '2') { player.slot = 2; updateHUD(); }
+            if(e.key === '3') { player.slot = 3; updateHUD(); }
+            if(e.key === ' ') {
+                if(player.y <= 0.01) {
+                    player.vy = 0.6; 
+                    player.jumps = 1;
+                } else if(player.loadout[1] === 'shuriken' && player.slot === 1 && player.jumps < 2) {
+                    player.vy = 0.5;
+                    player.jumps = 2;
+                }
+            }
+            if(k === 'e') { useWeapon(player); }
+        });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; keys[e.key] = false; });
+
+        function initGame() {
+            difficulty = document.getElementById('difficulty-select').value;
+            player.loadout = {
+                1: document.getElementById('weapon-ranged').value,
+                2: document.getElementById('weapon-melee').value,
+                3: document.getElementById('weapon-unit').value
+            };
+            document.getElementById('name-1').innerText = WEAPONS[player.loadout[1]].name;
+            document.getElementById('name-2').innerText = WEAPONS[player.loadout[2]].name;
+            document.getElementById('name-3').innerText = WEAPONS[player.loadout[3]].name;
+            
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+
+            obstacles = [
+                { x: 0, z: 0, w: 6, h: 8, d: 6, color: '#2c3e50' }, 
+                { x: -10, z: -10, w: 4, h: 5, d: 4, color: '#34495e' },
+                { x: 10, z: 10, w: 4, h: 5, d: 4, color: '#34495e' }
+            ];
+
+            score = { player: 0, enemy: 0 };
+            resetRound();
+            gameActive = true;
+            gameLoop();
+        }
+
+        function resetRound() {
+            player.hp = 150; player.x = -15; player.z = 0; player.y = 0; player.vy = 0; player.angle = 0; player.pitch = 0; player.ammo = 30;
+            enemy.hp = 150; enemy.x = 15; enemy.z = 0; enemy.y = 0; enemy.vy = 0; enemy.angle = Math.PI;
+            
+            const rWeps = ['shuriken', 'ar', 'pistol'];
+            const mWeps = ['knife', 'sword'];
+            const uWeps = ['dynamite', 'jumppad'];
+            enemy.loadout = {
+                1: rWeps[Math.floor(Math.random()*rWeps.length)],
+                2: mWeps[Math.floor(Math.random()*mWeps.length)],
+                3: uWeps[Math.floor(Math.random()*uWeps.length)]
+            };
+            enemy.slot = 1; enemy.ammo = 30;
+            projectiles = []; jumpPads = [];
+            updateHUD();
+        }
+
+        function handleWallCollisions(char) {
+            char.x = Math.max(-arenaSize + char.radius, Math.min(arenaSize - char.radius, char.x));
+            char.z = Math.max(-arenaSize + char.radius, Math.min(arenaSize - char.radius, char.z));
+
+            for (let obs of obstacles) {
+                let minX = obs.x - obs.w / 2 - char.radius;
+                let maxX = obs.x + obs.w / 2 + char.radius;
+                let minZ = obs.z - obs.d / 2 - char.radius;
+                let maxZ = obs.z + obs.d / 2 + char.radius;
+
+                if (char.x > minX && char.x < maxX && char.z > minZ && char.z < maxZ) {
+                    let overlapX1 = char.x - minX;
+                    let overlapX2 = maxX - char.x;
+                    let overlapZ1 = char.z - minZ;
+                    let overlapZ2 = maxZ - char.z;
+
+                    let minOverlap = Math.min(overlapX1, overlapX2, overlapZ1, overlapZ2);
+
+                    if (minOverlap === overlapX1) char.x = minX;
+                    else if (minOverlap === overlapX2) char.x = maxX;
+                    else if (minOverlap === overlapZ1) char.z = minZ;
+                    else if (minOverlap === overlapZ2) char.z = maxZ;
+                }
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('p-hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+            document.getElementById('p-hp-text').innerText = Math.max(0, Math.ceil(player.hp));
+            document.getElementById('e-hp-bar').style.width = `${(enemy.hp / enemy.maxHp) * 100}%`;
+            document.getElementById('e-hp-text').innerText = Math.max(0, Math.ceil(enemy.hp));
+            document.getElementById('score-p').innerText = score.player;
+            document.getElementById('score-e').innerText = score.enemy;
+
+            for(let i=1; i<=3; i++) {
+                document.getElementById(`slot-${i}`).classList.toggle('active', player.slot === i);
+            }
+            let currentWep = WEAPONS[player.loadout[player.slot]];
+            document.getElementById('p-ammo').innerText = currentWep.isGun ? `${player.ammo} / ${player.totalAmmo}` : "-";
+            document.getElementById('e-weapon-text').innerText = WEAPONS[enemy.loadout[enemy.slot]].name;
+        }
+
+        function useWeapon(char) {
+            if(char.cooldown > 0) return;
+            const wepKey = char.loadout[char.slot];
+            const wep = WEAPONS[wepKey];
+
+            if(wep.type === 'ranged') {
+                if(wep.isGun) {
+                    if(char.ammo <= 0) { char.ammo = 30; char.cooldown = 40; return; }
+                    char.ammo--;
+                }
+                let pAngle = char === player ? player.pitch : 0;
+                projectiles.push({
+                    type: wepKey, x: char.x, y: char.y + 1.4, z: char.z,
+                    vx: Math.cos(char.angle) * 1.2,
+                    vy: char === player ? Math.sin(pAngle) * 1.2 : (player.y - enemy.y)*0.04,
+                    vz: Math.sin(char.angle) * 1.2,
+                    owner: char, timer: 45, dmg: wep.dmg, radius: wepKey==='shuriken'? 0.4 : 0.15
+                });
+                char.cooldown = wepKey === 'ar' ? 5 : 15;
+            } else if(wep.type === 'melee') {
+                char.cooldown = wep.speed;
+                const target = char === player ? enemy : player;
+                if(Math.hypot(target.x - char.x, target.z - char.z) < 4.0 && Math.abs(target.y - char.y) < 2.5) {
+                    let damage = wep.dmg;
+                    if(wepKey === 'knife' && (Math.cos(char.angle)*Math.cos(target.angle) + Math.sin(char.angle)*Math.sin(target.angle)) > 0.5) damage = 150;
+                    target.hp -= damage; target.isFlashing = 5;
+                }
+            } else if(wep.type === 'unit') {
+                if(wepKey === 'dynamite') {
+                    projectiles.push({
+                        type: 'dynamite', x: char.x, y: char.y + 1.5, z: char.z,
+                        vx: Math.cos(char.angle) * 0.16, 
+                        vy: 0.12 + (char === player ? Math.sin(player.pitch) * 0.3 : 0), 
+                        vz: Math.sin(char.angle) * 0.16,
+                        owner: char, timer: 60, dmg: wep.dmg, radius: 0.25
+                    });
+                    char.cooldown = 45;
+                } else if(wepKey === 'jumppad') {
+                    jumpPads.push({ x: char.x, z: char.z, radius: 2.0 });
+                    char.cooldown = 30;
+                }
+            }
+            updateHUD();
+        }
+
+        function updateAI() {
+            enemy.aiTimer--;
+            const dist = Math.hypot(player.x - enemy.x, player.z - enemy.z);
+            enemy.angle = Math.atan2(player.z - enemy.z, player.x - enemy.x);
+
+            if(enemy.aiTimer <= 0) {
+                enemy.aiTimer = difficulty === 'easy' ? 60 : difficulty === 'normal' ? 30 : 15;
+                if(dist < 5) enemy.slot = 2;
+                else if(dist > 15 && Math.random() < 0.3) enemy.slot = 3;
+                else enemy.slot = 1;
+
+                let sp = difficulty === 'easy' ? 0.3 : difficulty === 'normal' ? 0.8 : 1.3;
+                enemy.targetX = player.x + (Math.random() - 0.5) * 12 * sp;
+                enemy.targetZ = player.z + (Math.random() - 0.5) * 12 * sp;
+                if(Math.random() < 0.15 && enemy.y <= 0.01) enemy.vy = 0.6;
+            }
+
+            const dx = enemy.targetX - enemy.x;
+            const dz = enemy.targetZ - enemy.z;
+            const dDist = Math.hypot(dx, dz);
+            if(dDist > 1) {
+                let aiSpeed = difficulty === 'easy' ? 0.08 : difficulty === 'normal' ? 0.2 : 0.32;
+                enemy.x += (dx / dDist) * aiSpeed;
+                enemy.z += (dz / dDist) * aiSpeed;
+            }
+            handleWallCollisions(enemy);
+
+            if(Math.random() < (difficulty === 'easy' ? 0.01 : difficulty === 'normal' ? 0.05 : 0.1)) useWeapon(enemy);
+        }
+
+        function gameLoop() {
+            if(!gameActive) return;
+            requestAnimationFrame(gameLoop);
+
+            // 1. [完全修正] 矢印キーで直感旋回（右矢印でプラス回転＝右を向く、左矢印でマイナス回転＝左を向く）
+            if (keys['ArrowRight']) player.angle += 0.04; 
+            if (keys['ArrowLeft'])  player.angle -= 0.04; 
+            if (keys['ArrowUp'])    player.pitch = Math.min(1.1, player.pitch + 0.04);   
+            if (keys['ArrowDown'])  player.pitch = Math.max(-1.1, player.pitch - 0.04); 
+
+            // 2. [完全修正] カメラの角度（player.angle）に基づいた正確なWASD前進・後退・左右並行移動
+            let moveSpeed = 0.35;
+            let forwardX = Math.cos(player.angle);
+            let forwardZ = Math.sin(player.angle);
+            let rightX = -Math.sin(player.angle);
+            let rightZ = Math.cos(player.angle);
+
+            let moveX = 0, moveZ = 0;
+            if (keys['w']) { moveX += forwardX; moveZ += forwardZ; } // Wで前進
+            if (keys['s']) { moveX -= forwardX; moveZ -= forwardZ; } // Sで後退
+            if (keys['a']) { moveX -= rightX; moveZ -= rightZ; }     // Aで左
+            if (keys['d']) { moveX += rightX; moveZ += rightZ; }     // Dで右
+            
+            if(moveX !== 0 || moveZ !== 0) {
+                let len = Math.hypot(moveX, moveZ);
+                player.x += (moveX / len) * moveSpeed;
+                player.z += (moveZ / len) * moveSpeed;
+            }
+            
+            handleWallCollisions(player);
+
+            if(player.cooldown > 0) player.cooldown--;
+            if(enemy.cooldown > 0) enemy.cooldown--;
+
+            [player, enemy].forEach(char => {
+                char.y += char.vy;
+                if(char.y > 0) char.vy -= 0.025;
+                else { char.y = 0; char.vy = 0; }
+
+                jumpPads.forEach(pad => {
+                    if(Math.hypot(char.x - pad.x, char.z - pad.z) < pad.radius && char.y <= 0.3) char.vy = 0.9;
+                });
+                if(char.isFlashing > 0) char.isFlashing--;
+            });
+
+            updateAI();
+
+            // 弾丸処理
+            for(let i = projectiles.length - 1; i >= 0; i--) {
+                let p = projectiles[i];
+                p.x += p.vx; p.z += p.vz; p.y += p.vy;
+                
+                let hitObstacle = false;
+                for (let obs of obstacles) {
+                    if (p.x > obs.x - obs.w/2 && p.x < obs.x + obs.w/2 &&
+                        p.z > obs.z - obs.d/2 && p.z < obs.z + obs.d/2 && p.y < obs.h) {
+                        hitObstacle = true;
+                    }
+                }
+                if (hitObstacle) { projectiles.splice(i, 1); continue; }
+                
+                if(p.type === 'dynamite') {
+                    p.vy -= 0.008;
+                    if(p.y < 0) { p.y = 0; p.vx *= 0.8; p.vz *= 0.8; }
+                    p.timer--;
+                    if(p.timer <= 0) {
+                        [player, enemy].forEach(char => {
+                            let d = Math.hypot(char.x - p.x, char.z - p.z);
+                            if(d < 6.5) { char.hp -= p.dmg * (1 - d/6.5); char.isFlashing = 5; }
+                        });
+                        projectiles.splice(i, 1); updateHUD(); continue;
+                    }
+                } else {
+                    let target = p.owner === player ? enemy : player;
+                    if(Math.hypot(target.x - p.x, target.z - p.z) < 1.4 && p.y >= target.y && p.y <= target.y + target.height) {
+                        target.hp -= p.dmg; target.isFlashing = 5; projectiles.splice(i, 1); updateHUD(); continue;
+                    }
+                    p.timer--;
+                    if(p.timer <= 0) projectiles.splice(i, 1);
+                }
+            }
+
+            if(player.hp <= 0 || enemy.hp <= 0) {
+                if(player.hp <= 0) score.enemy++; else score.player++;
+                if(score.player >= 5 || score.enemy >= 5) {
+                    gameActive = false;
+                    document.getElementById('game-over-screen').style.display = 'flex';
+                    document.getElementById('win-lose-text').innerText = score.player >= 5 ? "VICTORY" : "DEFEAT";
+                    document.getElementById('final-score').innerText = `FINAL SCORE  ${score.player} - ${score.enemy}`;
+                    return;
+                } else { resetRound(); }
+            }
+
+            renderScene();
+        }
+
+        // --- 完全3Dレンダリングシステム ---
+        function renderScene() {
+            ctx.fillStyle = '#060a14';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const fov = 400; 
+
+            const camX = player.x;
+            const camZ = player.z;
+            const camY = player.y + 1.6; 
+
+            // 3D空間の点を2D画面スクリーンにマッピング
+            function project(x, y, z) {
+                let dx = x - camX;
+                let dz = z - camZ;
+                let dy = y - camY;
+
+                // [連動修正] カメラの旋回方向（player.angle）と完全に一致させた3D逆行列回転
+                let cosA = Math.cos(-player.angle);
+                let sinA = Math.sin(-player.angle);
+                let rotX = dx * cosA - dz * sinA;
+                let rotZ = dx * sinA + dz * cosA;
+
+                let finalY = dy - (rotZ * Math.sin(player.pitch));
+
+                if (rotZ <= 0.1) return null;
+
+                return {
+                    x: cx + (rotX * fov) / rotZ,
+                    y: cy - (finalY * fov) / rotZ,
+                    size: fov / rotZ,
+                    depth: rotZ
+                };
+            }
+
+            let renderQueue = [];
+
+            // 3Dアリーナの外壁
+            let wSize = arenaSize;
+            let wHeight = 10;
+            let wallColor = '#131f30';
+            let corners = [
+                {x: -wSize, z: -wSize}, {x: wSize, z: -wSize},
+                {x: wSize, z: wSize}, {x: -wSize, z: wSize}
+            ];
+            for(let i=0; i<4; i++) {
+                let c1 = corners[i];
+                let c2 = corners[(i+1)%4];
+                renderQueue.push({
+                    type: 'wall_face', x1: c1.x, z1: c1.z, x2: c2.x, z2: c2.z, h: wHeight, color: wallColor
+                });
+            }
+
+            // 障害物ブロックの各面
+            obstacles.forEach(obs => {
+                let x1 = obs.x - obs.w/2, x2 = obs.x + obs.w/2;
+                let z1 = obs.z - obs.d/2, z2 = obs.z + obs.d/2;
+
+                let f = [
+                    {x1: x1, z1: z1, x2: x2, z2: z1}, 
+                    {x1: x2, z1: z1, x2: x2, z2: z2}, 
+                    {x1: x2, z1: z2, x2: x1, z2: z2}, 
+                    {x1: x1, z1: z2, x2: x1, z2: z1}  
+                ];
+                f.forEach(face => {
+                    renderQueue.push({ type: 'wall_face', x1: face.x1, z1: face.z1, x2: face.x2, z2: face.z2, h: obs.h, color: obs.color });
+                });
+            });
+
+            // ジャンプ台
+            jumpPads.forEach(pad => {
+                renderQueue.push({ type: 'circle', x: pad.x, y: 0, z: pad.z, r: pad.radius, color: '#ffa502' });
+            });
+
+            // 弾丸
+            projectiles.forEach(p => {
+                let col = p.type === 'shuriken' ? '#bdc3c7' : p.type === 'dynamite' ? '#ff4d4d' : '#ffd32a';
+                renderQueue.push({ type: 'sphere', x: p.x, y: p.y, z: p.z, r: p.radius, color: col });
+            });
+
+            // 敵
+            renderQueue.push({ type: 'char', x: enemy.x, y: enemy.y, z: enemy.z, color: '#ff4757', flash: enemy.isFlashing });
+
+            // Z深度ソート
+            renderQueue.forEach(obj => {
+                if (obj.type === 'wall_face') {
+                    let p = project((obj.x1 + obj.x2) / 2, obj.h/2, (obj.z1 + obj.z2) / 2);
+                    obj.computedDepth = p ? p.depth : 9999;
+                } else {
+                    let p = project(obj.x, obj.y || 0, obj.z);
+                    obj.computedDepth = p ? p.depth : 9999;
+                }
+            });
+
+            renderQueue.sort((a, b) => b.computedDepth - a.computedDepth);
+
+            // 画布への3D描画
+            renderQueue.forEach(obj => {
+                if (obj.computedDepth > 300) return;
+
+                if (obj.type === 'wall_face') {
+                    let p1_bot = project(obj.x1, 0, obj.z1);
+                    let p1_top = project(obj.x1, obj.h, obj.z1);
+                    let p2_bot = project(obj.x2, 0, obj.z2);
+                    let p2_top = project(obj.x2, obj.h, obj.z2);
+
+                    if (p1_bot && p1_top && p2_bot && p2_top) {
+                        ctx.fillStyle = obj.color;
+                        ctx.beginPath();
+                        ctx.moveTo(p1_top.x, p1_top.y);
+                        ctx.lineTo(p2_top.x, p2_top.y);
+                        ctx.lineTo(p2_bot.x, p2_bot.y);
+                        ctx.lineTo(p1_bot.x, p1_bot.y);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        ctx.strokeStyle = '#050811';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+                else if (obj.type === 'circle' || obj.type === 'sphere') {
+                    let p = project(obj.x, obj.y, obj.z);
+                    if (p) {
+                        ctx.fillStyle = obj.color;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, Math.max(1, obj.r * p.size), 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                else if (obj.type === 'char') {
+                    let pBase = project(obj.x, obj.y, obj.z);
+                    let pTop = project(obj.x, obj.y + 2.0, obj.z);
+                    if (pBase && pTop) {
+                        let w = 1.2 * pBase.size;
+                        let h = pBase.y - pTop.y;
+                        ctx.fillStyle = obj.flash > 0 ? '#ffffff' : obj.color;
+                        ctx.beginPath();
+                        ctx.roundRect(pBase.x - w/2, pTop.y, w, h, w/4);
+                        ctx.fill();
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
